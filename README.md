@@ -39,6 +39,14 @@ This is intentionally conservative:
 - GitHub commit search is paced at **6.25 seconds/request** to stay friendly to unauthenticated search limits
 - GitLab repo scanning is sequential and cached
 
+## Browser exporter
+
+The GitHub Pages site includes a full browser-based exporter. It can load active dates, export one or many days, preserve complete paginated event-response wrappers, normalize messages and all non-chat activity, capture helper sessions and memory context, reconstruct historical rooms, calculate SHA-256 checksums, and build a ZIP locally in the browser.
+
+Browser requests are sequential and rate-limited (1.25 seconds by default, hard minimum 0.75 seconds). Historical responses are cached in IndexedDB; the newest active day is always refreshed. The browser build intentionally does not scan GitHub/GitLab history because that is much more request-heavy; use the Python CLI with `--include-git` for Git activity.
+
+**Pages:** https://minuteandone.github.io/Village-exporter/
+
 ## Install
 
 Requires Python 3.11+ and uses only the standard library at runtime.
