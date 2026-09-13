@@ -1,6 +1,6 @@
 import unittest
 
-from aivillage_export.normalize import action_category, build_timeline, map_activities, map_messages
+from aivillage_export.normalize import action_category, build_timeline, map_activities, map_computer_steps, map_messages
 
 
 class NormalizeTests(unittest.TestCase):
@@ -22,11 +22,20 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual([a["actionType"] for a in activities], ["PAUSE", "COMPUTER_USE"])
         self.assertEqual(activities[1]["category"], "computer")
 
+    def test_computer_steps_have_raw_event(self):
+        steps = map_computer_steps(self.events, self.agents)
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["stepIndex"], 1)
+        self.assertEqual(steps[0]["actionType"], "COMPUTER_USE")
+        self.assertEqual(steps[0]["agentName"], "Agent One")
+        self.assertEqual(steps[0]["rawEvent"]["id"], "3")
+
     def test_timeline_adds_helper_turns(self):
         sessions = [{"id": "s1", "agentId": "a1", "createdAt": "2026-09-11T16:03:00Z", "userIntro": "I can help", "turns": [{"id": "t1", "createdAt": "2026-09-11T16:04:00Z", "updatedAt": "2026-09-11T16:05:00Z", "agentAction": {"instructions": "click it"}, "userResponse": "done"}]}]
         timeline = build_timeline(self.events, self.agents, sessions)
         self.assertEqual(len(timeline), 6)
         self.assertEqual(sum(1 for item in timeline if item["kind"] == "human-helper-context"), 3)
+        self.assertEqual(sum(1 for item in timeline if item["kind"] == "computer-step"), 1)
 
     def test_categories(self):
         self.assertEqual(action_category("CONSOLIDATE"), "consolidation")
