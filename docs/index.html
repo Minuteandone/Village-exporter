@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A polite, resumable whole-day exporter for the public AI Village archive.">
+  <meta name="description" content="Export complete public AI Village days directly from your browser, politely and locally.">
   <title>AI Village Mass Exporter</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
@@ -12,50 +12,143 @@
     <nav class="nav" aria-label="Main navigation">
       <a class="brand" href="./">AI Village Mass Exporter <span>📦</span></a>
       <div class="nav-links">
+        <a href="#browser-exporter">Browser exporter</a>
         <a href="#features">Features</a>
-        <a href="#usage">Usage</a>
+        <a href="#cli">CLI</a>
         <a href="https://github.com/Minuteandone/Village-exporter">GitHub</a>
       </div>
     </nav>
     <div class="hero-inner">
       <p class="eyebrow">ARCHIVE THE WHOLE DAY, NOT JUST THE CHAT</p>
-      <h1>AI Village history,<br><span>preserved politely.</span></h1>
-      <p class="lede">Export complete public AI Village days with raw events, normalized messages, activity, helper sessions, memory context, historical rooms, checksums, and optional Git activity — without hammering the server.</p>
+      <h1>AI Village history,<br><span>straight from your browser.</span></h1>
+      <p class="lede">Select public Village days, preserve raw event pages and every exposed activity type, then build a verifiable ZIP locally on your device. No Python required.</p>
       <div class="actions">
-        <a class="button primary" href="#usage">Get started</a>
+        <a class="button primary" href="#browser-exporter">Open browser exporter</a>
         <a class="button" href="https://github.com/Minuteandone/Village-exporter">View source</a>
       </div>
-      <div class="terminal" aria-label="Example command">
+      <div class="terminal" aria-label="Browser exporter summary">
         <div class="terminal-bar"><span></span><span></span><span></span></div>
-        <pre><code>python -m aivillage_export actual-launch-1 --date 2026-09-11</code></pre>
+        <pre><code>browser → polite relay fetches → raw event pages → ZIP built locally 📦</code></pre>
       </div>
     </div>
   </header>
 
   <main>
+    <section id="browser-exporter" class="section exporter-section">
+      <div class="section-heading exporter-heading">
+        <div>
+          <p class="eyebrow">BROWSER EXPORTER</p>
+          <h2>Pick days. Get archive.</h2>
+          <p>No data is uploaded to this site. Public Village data is fetched through the same relay strategy used by Aivillagenews, then assembled into a ZIP in your browser.</p>
+        </div>
+        <div class="privacy-chip">LOCAL ZIP BUILD · NO LOGIN</div>
+      </div>
+
+      <div class="exporter-shell">
+        <div class="exporter-controls">
+          <div class="field-group wide-field">
+            <label for="village-slug">Village slug</label>
+            <div class="inline-field">
+              <input id="village-slug" type="text" value="actual-launch-1" spellcheck="false" autocomplete="off" aria-describedby="slug-help">
+              <button id="load-days" class="button primary" type="button">Load days</button>
+            </div>
+            <small id="slug-help">For the main public Village, use <code>actual-launch-1</code>.</small>
+          </div>
+
+          <div id="day-tools" class="day-tools" hidden>
+            <div class="day-tools-top">
+              <div>
+                <label>Days</label>
+                <div id="selection-summary" class="selection-summary">0 days selected</div>
+              </div>
+              <div class="mini-actions">
+                <button id="select-all-days" type="button">All</button>
+                <button id="select-last-five" type="button">Latest 5</button>
+                <button id="clear-days" type="button">Clear</button>
+              </div>
+            </div>
+            <div id="day-list" class="day-list" aria-label="Available Village days"></div>
+          </div>
+
+          <div class="option-grid">
+            <div class="field-group">
+              <label for="memory-mode">Memory context</label>
+              <select id="memory-mode">
+                <option value="consolidations" selected>Consolidations only</option>
+                <option value="none">None</option>
+                <option value="all-agents">All agents</option>
+              </select>
+              <small>“All agents” is much heavier and creates extra requests.</small>
+            </div>
+            <div class="field-group">
+              <label for="request-delay">Minimum request spacing</label>
+              <div class="suffix-field"><input id="request-delay" type="number" min="0.75" step="0.25" value="1.25"><span>seconds</span></div>
+              <small>The tool refuses to go below 0.75 seconds.</small>
+            </div>
+          </div>
+
+          <label class="check-row">
+            <input id="refresh-cache" type="checkbox">
+            <span><strong>Refresh persistent cache</strong><small>Normally, historical responses are reused from IndexedDB so reruns do not hit the relay again. The newest day is always refreshed.</small></span>
+          </label>
+
+          <div class="export-actions">
+            <button id="export-selected" class="button primary big-button" type="button" disabled>Export selected days</button>
+            <button id="cancel-export" class="button danger" type="button" hidden>Cancel</button>
+          </div>
+          <p id="cache-note" class="cache-note">Historical event pages, helper sessions, and memory responses are cached locally after a successful fetch.</p>
+        </div>
+
+        <div class="exporter-output">
+          <div class="output-head">
+            <span>EXPORT STATUS</span>
+            <strong id="export-status">Load a Village to begin.</strong>
+          </div>
+          <progress id="export-progress" max="100" value="0"></progress>
+          <div id="export-log" class="export-log" role="log" aria-live="polite"></div>
+          <div class="saved-files">
+            <span>Each day includes</span>
+            <code>event-pages/</code>
+            <code>events.raw.json</code>
+            <code>messages.json</code>
+            <code>activities.json</code>
+            <code>timeline.jsonl</code>
+            <code>human-use-sessions.raw.json</code>
+            <code>rooms.discovered.json</code>
+            <code>memories/</code>
+            <code>manifest.json</code>
+            <code>checksums.sha256</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="browser-note">
+        <strong>Browser limitation:</strong> the finished ZIP is held in memory before download. Huge full-history exports may use a lot of RAM, especially on mobile. For truly enormous dumps, the Python CLI is still the tank. 🐢
+      </div>
+    </section>
+
     <section id="features" class="section">
       <div class="section-heading">
         <p class="eyebrow">WHAT IT SAVES</p>
         <h2>A day becomes an archive.</h2>
       </div>
       <div class="grid">
-        <article><span>🧱</span><h3>Raw events</h3><p>The paginated event feed is preserved as the source of truth, including activity a viewer might normally hide.</p></article>
+        <article><span>🧱</span><h3>Raw event pages</h3><p>Every complete pagination response is preserved, plus a flattened raw-event file for searching and analysis.</p></article>
         <article><span>💬</span><h3>Readable views</h3><p>Messages, activities, human-helper context, and a merged chronological timeline are generated beside the raw data.</p></article>
         <article><span>🧠</span><h3>Memory context</h3><p>Capture memory versions around consolidations, or opt into broader memory archival when you need it.</p></article>
         <article><span>🏺</span><h3>Historical rooms</h3><p>Rooms seen in old events are reconstructed even when they no longer appear in the current room roster.</p></article>
-        <article><span>🐌</span><h3>Polite fetching</h3><p>Sequential requests, pacing, disk caching, Retry-After support, and backoff make reruns friendly and resumable.</p></article>
-        <article><span>🔐</span><h3>Verifiable files</h3><p>Every completed day includes a manifest and SHA-256 checksums, plus a per-day ZIP for easy preservation.</p></article>
+        <article><span>🐌</span><h3>Polite fetching</h3><p>One request at a time, configurable pacing, persistent browser caching, and retry/backoff behavior keep bulk extraction civilized.</p></article>
+        <article><span>🔐</span><h3>Verifiable files</h3><p>Every completed day includes a manifest and SHA-256 checksums, all generated locally with the Web Crypto API.</p></article>
       </div>
     </section>
 
-    <section id="usage" class="section split">
+    <section id="cli" class="section split">
       <div>
-        <p class="eyebrow">QUICK START</p>
-        <h2>Run it locally.</h2>
-        <p>The exporter requires Python 3.11+ and uses only the standard library at runtime.</p>
+        <p class="eyebrow">CLI OPTION</p>
+        <h2>Need the heavy machinery?</h2>
+        <p>The Python 3.11+ exporter is still better for very large archives, unattended runs, and optional GitHub/GitLab history capture.</p>
       </div>
       <div class="code-stack">
-        <div class="code-card"><span>Install</span><pre><code>python -m pip install -e .</code></pre></div>
         <div class="code-card"><span>One day</span><pre><code>python -m aivillage_export actual-launch-1 \
   --date 2026-09-11</code></pre></div>
         <div class="code-card"><span>Everything</span><pre><code>python -m aivillage_export actual-launch-1 \
@@ -68,13 +161,14 @@
     <section class="section caution">
       <p class="eyebrow">THE IMPORTANT BIT</p>
       <h2>Archive responsibly. 🐢</h2>
-      <p>The defaults are intentionally conservative: one request at a time, a delay between Village API requests, persistent caching, retry/backoff behavior, and opt-in Git scanning. A history tool should preserve the server too.</p>
+      <p>The defaults are intentionally conservative. Browser exports are sequential, historical responses are cached, rate-limit responses back off automatically, and the newest day bypasses stale event caches. A history tool should preserve the server too.</p>
     </section>
   </main>
 
   <footer>
-    <p>AI Village Mass Exporter · MIT licensed · Inspired by the Aivillagenews / Village Archive viewer.</p>
+    <p>AI Village Mass Exporter · MIT licensed · Built alongside Aivillagenews / Village Archive.</p>
     <a href="https://github.com/Minuteandone/Village-exporter">Source on GitHub →</a>
   </footer>
+  <script src="./exporter.js" defer></script>
 </body>
 </html>
