@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A polite, resumable whole-day exporter for the public AI Village archive.">
+  <title>AI Village Mass Exporter</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="./">AI Village Mass Exporter <span>📦</span></a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#usage">Usage</a>
+        <a href="https://github.com/Minuteandone/Village-exporter">GitHub</a>
+      </div>
+    </nav>
+    <div class="hero-inner">
+      <p class="eyebrow">ARCHIVE THE WHOLE DAY, NOT JUST THE CHAT</p>
+      <h1>AI Village history,<br><span>preserved politely.</span></h1>
+      <p class="lede">Export complete public AI Village days with raw events, normalized messages, activity, helper sessions, memory context, historical rooms, checksums, and optional Git activity — without hammering the server.</p>
+      <div class="actions">
+        <a class="button primary" href="#usage">Get started</a>
+        <a class="button" href="https://github.com/Minuteandone/Village-exporter">View source</a>
+      </div>
+      <div class="terminal" aria-label="Example command">
+        <div class="terminal-bar"><span></span><span></span><span></span></div>
+        <pre><code>python -m aivillage_export actual-launch-1 --date 2026-09-11</code></pre>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="features" class="section">
+      <div class="section-heading">
+        <p class="eyebrow">WHAT IT SAVES</p>
+        <h2>A day becomes an archive.</h2>
+      </div>
+      <div class="grid">
+        <article><span>🧱</span><h3>Raw events</h3><p>The paginated event feed is preserved as the source of truth, including activity a viewer might normally hide.</p></article>
+        <article><span>💬</span><h3>Readable views</h3><p>Messages, activities, human-helper context, and a merged chronological timeline are generated beside the raw data.</p></article>
+        <article><span>🧠</span><h3>Memory context</h3><p>Capture memory versions around consolidations, or opt into broader memory archival when you need it.</p></article>
+        <article><span>🏺</span><h3>Historical rooms</h3><p>Rooms seen in old events are reconstructed even when they no longer appear in the current room roster.</p></article>
+        <article><span>🐌</span><h3>Polite fetching</h3><p>Sequential requests, pacing, disk caching, Retry-After support, and backoff make reruns friendly and resumable.</p></article>
+        <article><span>🔐</span><h3>Verifiable files</h3><p>Every completed day includes a manifest and SHA-256 checksums, plus a per-day ZIP for easy preservation.</p></article>
+      </div>
+    </section>
+
+    <section id="usage" class="section split">
+      <div>
+        <p class="eyebrow">QUICK START</p>
+        <h2>Run it locally.</h2>
+        <p>The exporter requires Python 3.11+ and uses only the standard library at runtime.</p>
+      </div>
+      <div class="code-stack">
+        <div class="code-card"><span>Install</span><pre><code>python -m pip install -e .</code></pre></div>
+        <div class="code-card"><span>One day</span><pre><code>python -m aivillage_export actual-launch-1 \
+  --date 2026-09-11</code></pre></div>
+        <div class="code-card"><span>Everything</span><pre><code>python -m aivillage_export actual-launch-1 \
+  --all --keep-going</code></pre></div>
+        <div class="code-card"><span>Include Git activity</span><pre><code>python -m aivillage_export actual-launch-1 \
+  --date 2026-09-11 --include-git</code></pre></div>
+      </div>
+    </section>
+
+    <section class="section caution">
+      <p class="eyebrow">THE IMPORTANT BIT</p>
+      <h2>Archive responsibly. 🐢</h2>
+      <p>The defaults are intentionally conservative: one request at a time, a delay between Village API requests, persistent caching, retry/backoff behavior, and opt-in Git scanning. A history tool should preserve the server too.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>AI Village Mass Exporter · MIT licensed · Inspired by the Aivillagenews / Village Archive viewer.</p>
+    <a href="https://github.com/Minuteandone/Village-exporter">Source on GitHub →</a>
+  </footer>
+</body>
+</html>

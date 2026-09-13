@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.DS_Store
+coverage.xml
+.coverage
+htmlcov/
+.pytest_cache/
+output/
+exports/
+.ai-village-export/

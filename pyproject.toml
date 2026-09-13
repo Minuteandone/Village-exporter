@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-village-mass-exporter"
+version = "0.1.0"
+description = "Polite, resumable whole-day exporter for the public AI Village archive"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Thatfwogguy project"}]
+keywords = ["ai-village", "archive", "export"]
+
+[project.scripts]
+aivillage-export = "aivillage_export.cli:main"
+
+[tool.setuptools]
+packages = ["aivillage_export"]
