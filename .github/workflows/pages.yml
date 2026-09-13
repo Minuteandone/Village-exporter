@@ -27,6 +27,8 @@ jobs:
           python-version: '3.11'
       - name: Run offline tests
         run: python -m unittest discover -s tests -v
+      - name: Check browser exporter syntax
+        run: node --check docs/exporter.js
 
   deploy:
     if: github.event_name != 'pull_request'
