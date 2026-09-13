@@ -13,7 +13,7 @@ from typing import Any
 
 from .client import HttpError, PoliteHttpClient
 from .git_export import GitExporter
-from .normalize import build_timeline, counts, map_activities, map_messages
+from .normalize import build_timeline, counts, map_activities, map_computer_steps, map_messages
 from .utils import dump_json, dump_jsonl, iso_to_dt, safe_slug, sha256_file, village_day_bounds
 
 API_ORIGIN = "https://theaidigest.org/village"
@@ -163,12 +163,12 @@ class VillageExporter:
                 result[agent_id] = versions
         return result, warnings
 
-
     @staticmethod
     def discover_rooms(events: list[dict[str, Any]], known_rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rooms: dict[str, dict[str, Any]] = {
             str(room.get("id")): dict(room) for room in known_rooms if room.get("id")
         }
+        known_ids = {str(r.get("id")) for r in known_rooms if r.get("id")}
         for event in events:
             data = event.get("data") if isinstance(event.get("data"), dict) else {}
             room_id = data.get("roomId")
@@ -177,14 +177,14 @@ class VillageExporter:
                 current = rooms.setdefault(room_id, {"id": room_id})
                 if isinstance(room_name, str) and room_name and not current.get("name"):
                     current["name"] = room_name
-                current.setdefault("discoveredFromHistoricalEvent", room_id not in {str(r.get("id")) for r in known_rooms if r.get("id")})
+                current.setdefault("discoveredFromHistoricalEvent", room_id not in known_ids)
             previous_id = data.get("previousRoomId")
             previous_name = data.get("previousRoomName")
             if isinstance(previous_id, str) and previous_id:
                 current = rooms.setdefault(previous_id, {"id": previous_id})
                 if isinstance(previous_name, str) and previous_name and not current.get("name"):
                     current["name"] = previous_name
-                current.setdefault("discoveredFromHistoricalEvent", previous_id not in {str(r.get("id")) for r in known_rooms if r.get("id")})
+                current.setdefault("discoveredFromHistoricalEvent", previous_id not in known_ids)
         return sorted(rooms.values(), key=lambda room: (str(room.get("name") or ""), str(room.get("id") or "")))
 
     def _summary_markdown(
@@ -194,13 +194,13 @@ class VillageExporter:
         events: list[dict[str, Any]],
         messages: list[dict[str, Any]],
         activities: list[dict[str, Any]],
+        computer_steps: list[dict[str, Any]],
         sessions: list[dict[str, Any]],
         memories: dict[str, list[dict[str, Any]]],
         git_counts: dict[str, int],
         warnings: list[str],
     ) -> str:
         room_names = {str(r.get("id")): str(r.get("name")) for r in village.rooms if r.get("id")}
-        agent_names = {str(a.get("id")): str(a.get("name")) for a in village.agents if a.get("id")}
         speaker_counts = Counter(m.get("speakerName") or m.get("speakerId") or "unknown" for m in messages)
         room_counts = Counter(room_names.get(str(m.get("roomId")), str(m.get("roomId") or "unknown")) for m in messages)
         action_counts = counts(events)
@@ -212,6 +212,7 @@ class VillageExporter:
             f"- Raw events: **{len(events):,}**",
             f"- Chat messages: **{len(messages):,}**",
             f"- Non-chat activities: **{len(activities):,}**",
+            f"- Computer steps: **{len(computer_steps):,}**",
             f"- Human-use sessions: **{len(sessions):,}**",
             f"- Agents with saved memory context: **{len(memories):,}**",
         ]
@@ -234,7 +235,7 @@ class VillageExporter:
             "",
             "`events.raw.json` is the preservation source of truth. Normalized files are convenience views and never replace the raw event payloads.",
             "",
-            "Computer/browser actions are kept when they exist in the public event feed; unlike the viewer UI, the exporter does not intentionally filter them out.",
+            "Computer/browser actions are kept when they exist in the public event feed. `computer-steps.json` and `computer-steps.jsonl` provide a dedicated chronological view while retaining each original raw event.",
         ]
         return "\n".join(lines) + "\n"
 
@@ -262,6 +263,7 @@ class VillageExporter:
 
         messages = map_messages(events, village.agents)
         activities = map_activities(events, village.agents)
+        computer_steps = map_computer_steps(events, village.agents)
         timeline = build_timeline(events, village.agents, sessions)
         discovered_rooms = self.discover_rooms(events, village.rooms)
 
@@ -286,6 +288,8 @@ class VillageExporter:
         dump_jsonl(base / "events.raw.jsonl", events)
         dump_json(base / "messages.json", messages)
         dump_json(base / "activities.json", activities)
+        dump_json(base / "computer-steps.json", computer_steps)
+        dump_jsonl(base / "computer-steps.jsonl", computer_steps)
         dump_jsonl(base / "timeline.jsonl", timeline)
         dump_json(base / "human-use-sessions.raw.json", sessions)
         dump_json(base / "agents.json", village.agents)
@@ -311,6 +315,7 @@ class VillageExporter:
                 events,
                 messages,
                 activities,
+                computer_steps,
                 sessions,
                 memories,
                 git_counts,
@@ -332,6 +337,7 @@ class VillageExporter:
                 "eventPages": event_pages,
                 "messages": len(messages),
                 "activities": len(activities),
+                "computerSteps": len(computer_steps),
                 "humanUseSessions": len(sessions),
                 "memoryAgents": len(memories),
                 **({"git": git_meta} if git_meta else {}),
