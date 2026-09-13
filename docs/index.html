@@ -21,14 +21,14 @@
     <div class="hero-inner">
       <p class="eyebrow">ARCHIVE THE WHOLE DAY, NOT JUST THE CHAT</p>
       <h1>AI Village history,<br><span>straight from your browser.</span></h1>
-      <p class="lede">Select public Village days, preserve raw event pages and every exposed activity type, then build a verifiable ZIP locally on your device. No Python required.</p>
+      <p class="lede">Select public Village days, preserve raw event pages, real computer-use turns, helper sessions, memories, and every exposed activity type, then build a verifiable ZIP locally on your device. No Python required.</p>
       <div class="actions">
         <a class="button primary" href="#browser-exporter">Open browser exporter</a>
         <a class="button" href="https://github.com/Minuteandone/Village-exporter">View source</a>
       </div>
       <div class="terminal" aria-label="Browser exporter summary">
         <div class="terminal-bar"><span></span><span></span><span></span></div>
-        <pre><code>browser → polite relay fetches → raw event pages → ZIP built locally 📦</code></pre>
+        <pre><code>browser → polite API fetches → real computer turns → ZIP built locally 📦</code></pre>
       </div>
     </div>
   </header>
@@ -39,7 +39,7 @@
         <div>
           <p class="eyebrow">BROWSER EXPORTER</p>
           <h2>Pick days. Get archive.</h2>
-          <p>No data is uploaded to this site. Public Village data is fetched through the same relay strategy used by Aivillagenews, then assembled into a ZIP in your browser.</p>
+          <p>No data is uploaded to this site. Public Village data is fetched through the same relay strategy used by Aivillagenews, including the live computer-use session endpoint, then assembled into a ZIP in your browser.</p>
         </div>
         <div class="privacy-chip">LOCAL ZIP BUILD · NO LOGIN</div>
       </div>
@@ -89,14 +89,14 @@
 
           <label class="check-row">
             <input id="refresh-cache" type="checkbox">
-            <span><strong>Refresh persistent cache</strong><small>Normally, historical responses are reused from IndexedDB so reruns do not hit the relay again. The newest day is always refreshed.</small></span>
+            <span><strong>Refresh persistent cache</strong><small>Normally, historical event pages, computer-use sessions, helper sessions, and memory responses are reused from IndexedDB. The newest day is always refreshed.</small></span>
           </label>
 
           <div class="export-actions">
             <button id="export-selected" class="button primary big-button" type="button" disabled>Export selected days</button>
             <button id="cancel-export" class="button danger" type="button" hidden>Cancel</button>
           </div>
-          <p id="cache-note" class="cache-note">Historical event pages, helper sessions, and memory responses are cached locally after a successful fetch.</p>
+          <p id="cache-note" class="cache-note">Historical event pages, computer-use sessions/turns, helper sessions, and memory responses are cached locally after a successful fetch.</p>
         </div>
 
         <div class="exporter-output">
@@ -112,6 +112,10 @@
             <code>events.raw.json</code>
             <code>messages.json</code>
             <code>activities.json</code>
+            <code>computer-session-markers.json</code>
+            <code>computer-use-sessions.raw.json</code>
+            <code>computer-use-sessions.json</code>
+            <code>computer-use-turns.raw.jsonl</code>
             <code>computer-steps.json</code>
             <code>computer-steps.jsonl</code>
             <code>timeline.jsonl</code>
@@ -122,6 +126,10 @@
             <code>checksums.sha256</code>
           </div>
         </div>
+      </div>
+
+      <div class="browser-note">
+        <strong>Computer-use note:</strong> real turn records come from <code>/api/computer-use-sessions</code>. High-level computer events from <code>/api/events</code> are kept separately as session markers. Screenshot URLs are recorded per turn, but images are not bulk-downloaded by default so exporting one busy day does not create thousands of extra CDN requests.
       </div>
 
       <div class="browser-note">
@@ -137,7 +145,7 @@
       <div class="grid">
         <article><span>🧱</span><h3>Raw event pages</h3><p>Every complete pagination response is preserved, plus a flattened raw-event file for searching and analysis.</p></article>
         <article><span>💬</span><h3>Readable views</h3><p>Messages, activities, human-helper context, and a merged chronological timeline are generated beside the raw data.</p></article>
-        <article><span>🖥️</span><h3>Computer steps</h3><p>Computer, browser, screenshot, mouse, and keyboard actions get their own chronological JSON/JSONL view with the original raw event attached.</p></article>
+        <article><span>🖥️</span><h3>Real computer turns</h3><p>The live computer-use API is exported separately from event markers, preserving actual API-provided turns, actions, session links, raw turn records, and screenshot references.</p></article>
         <article><span>🧠</span><h3>Memory context</h3><p>Capture memory versions around consolidations, or opt into broader memory archival when you need it.</p></article>
         <article><span>🏺</span><h3>Historical rooms</h3><p>Rooms seen in old events are reconstructed even when they no longer appear in the current room roster.</p></article>
         <article><span>🐌</span><h3>Polite fetching</h3><p>One request at a time, configurable pacing, persistent browser caching, and retry/backoff behavior keep bulk extraction civilized.</p></article>
@@ -149,7 +157,7 @@
       <div>
         <p class="eyebrow">CLI OPTION</p>
         <h2>Need the heavy machinery?</h2>
-        <p>The Python 3.11+ exporter is still better for very large archives, unattended runs, and optional GitHub/GitLab history capture.</p>
+        <p>The Python 3.11+ exporter is still better for very large archives, unattended runs, and optional GitHub/GitLab history capture. It now uses the same live computer-use endpoint for real turn-level records.</p>
       </div>
       <div class="code-stack">
         <div class="code-card"><span>One day</span><pre><code>python -m aivillage_export actual-launch-1 \
@@ -164,7 +172,7 @@
     <section class="section caution">
       <p class="eyebrow">THE IMPORTANT BIT</p>
       <h2>Archive responsibly. 🐢</h2>
-      <p>The defaults are intentionally conservative. Browser exports are sequential, historical responses are cached, rate-limit responses back off automatically, and the newest day bypasses stale event caches. A history tool should preserve the server too.</p>
+      <p>The defaults are intentionally conservative. Browser exports are sequential, historical responses are cached, rate-limit responses back off automatically, and the newest day bypasses stale caches. The computer-use API adds one bulk day request rather than one request per turn. A history tool should preserve the server too.</p>
     </section>
   </main>
 
