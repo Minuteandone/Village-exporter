@@ -31,7 +31,7 @@ def _objects(value: Any) -> list[dict[str, Any]]:
 
 
 def sessions_from_payload(payload: Any) -> list[dict[str, Any]]:
-    """Return session rows while keeping the original API wrapper separately."""
+    """Return the session rows while preserving the API's raw wrapper separately."""
     if isinstance(payload, list):
         return _objects(payload)
     if not isinstance(payload, dict):
@@ -63,24 +63,31 @@ def _turn_rows(session: dict[str, Any]) -> list[Any]:
     return []
 
 
-def flatten_turns(sessions: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+def flatten_turns(sessions: Iterable[dict[str, Any]], payload: Any = None) -> list[dict[str, Any]]:
     """Flatten API-provided turn rows and retain the parent session id.
 
-    The live endpoint has existed across multiple Village versions, so the parser
-    accepts both full turn objects and bare turn ids instead of silently dropping
-    either representation.
+    The live daily endpoint has existed across multiple Village versions, so the
+    parser accepts nested turn objects, bare turn ids, and sibling top-level turn
+    arrays instead of silently dropping historical shapes.
     """
     flattened: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
-    for session in sessions:
-        session_id = str(session.get("id") or session.get("sessionId") or session.get("session_id") or "")
-        for index, raw in enumerate(_turn_rows(session)):
+
+    def add_rows(rows: Iterable[Any], fallback_session_id: str = "") -> None:
+        for index, raw in enumerate(rows):
             if isinstance(raw, dict):
                 turn = dict(raw)
             elif isinstance(raw, (str, int)):
                 turn = {"id": str(raw)}
             else:
                 continue
+            session_id = str(
+                turn.get("computerUseSessionId")
+                or turn.get("sessionId")
+                or turn.get("session_id")
+                or fallback_session_id
+                or ""
+            )
             turn_id = str(turn.get("id") or turn.get("turnId") or turn.get("turn_id") or "")
             identity = (session_id, turn_id or f"index:{index}")
             if identity in seen:
@@ -88,6 +95,23 @@ def flatten_turns(sessions: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
             seen.add(identity)
             turn.setdefault("computerUseSessionId", session_id or None)
             flattened.append(turn)
+
+    session_rows = list(sessions)
+    for session in session_rows:
+        session_id = str(session.get("id") or session.get("sessionId") or session.get("session_id") or "")
+        add_rows(_turn_rows(session), session_id)
+
+    containers: list[dict[str, Any]] = []
+    if isinstance(payload, dict):
+        containers.append(payload)
+        if isinstance(payload.get("data"), dict):
+            containers.append(payload["data"])
+    for container in containers:
+        for key in TURN_ARRAY_KEYS:
+            rows = container.get(key)
+            if isinstance(rows, list):
+                add_rows(rows)
+                break
     return flattened
 
 
@@ -102,6 +126,7 @@ def _agent_names(agents: Iterable[dict[str, Any]]) -> dict[str, str]:
 def normalize_turns(
     sessions: Iterable[dict[str, Any]],
     agents: Iterable[dict[str, Any]],
+    payload: Any = None,
 ) -> list[dict[str, Any]]:
     names = _agent_names(agents)
     session_map: dict[str, dict[str, Any]] = {}
@@ -111,12 +136,22 @@ def normalize_turns(
             session_map[sid] = session
 
     normalized: list[dict[str, Any]] = []
-    for raw in flatten_turns(session_map.values()):
+    for raw in flatten_turns(session_map.values(), payload):
         session_id = str(raw.get("computerUseSessionId") or raw.get("sessionId") or raw.get("session_id") or "")
         session = session_map.get(session_id, {})
         turn_id = raw.get("id") or raw.get("turnId") or raw.get("turn_id")
-        agent_id = raw.get("agentId") or raw.get("agent_id") or session.get("agentId") or session.get("agent_id")
-        created_at = raw.get("createdAt") or raw.get("created_at") or raw.get("timestamp") or raw.get("ts")
+        agent_id = (
+            raw.get("agentId")
+            or raw.get("agent_id")
+            or session.get("agentId")
+            or session.get("agent_id")
+        )
+        created_at = (
+            raw.get("createdAt")
+            or raw.get("created_at")
+            or raw.get("timestamp")
+            or raw.get("ts")
+        )
         action = raw.get("agentAction")
         if action is None:
             action = raw.get("agent_action")
@@ -143,7 +178,11 @@ def normalize_turns(
 
 
 def _marker_rows(base: Path) -> list[dict[str, Any]]:
-    path = base / "computer-steps.json"
+    # On the first upgrade, legacy computer-steps.json contains event markers.
+    # On later runs it contains real turns, so prefer the separated marker file.
+    path = base / "computer-session-markers.json"
+    if not path.exists():
+        path = base / "computer-steps.json"
     if not path.exists():
         return []
     try:
@@ -166,6 +205,10 @@ def _rewrite_timeline(base: Path, real_steps: list[dict[str, Any]]) -> None:
                 continue
             if not isinstance(item, dict):
                 continue
+            if item.get("kind") == "computer-use-turn":
+                # Regenerated below from the fresh/cached API payload; avoid
+                # duplicates when an already-enriched day is rerun.
+                continue
             if item.get("kind") == "computer-step" and item.get("rawTurn") is None:
                 item["kind"] = "computer-session-marker"
             existing.append(item)
@@ -181,10 +224,25 @@ def _rewrite_timeline(base: Path, real_steps: list[dict[str, Any]]) -> None:
     dump_jsonl(path, existing)
 
 
-def _update_summary(base: Path, marker_count: int, session_count: int, turn_count: int, warning: str | None) -> None:
+def _update_summary(
+    base: Path,
+    marker_count: int,
+    session_count: int,
+    turn_count: int,
+    warning: str | None,
+) -> None:
     path = base / "summary.md"
     text = path.read_text(encoding="utf-8") if path.exists() else "# AI Village day export\n"
     text = re.sub(r"^- Computer steps: \*\*[^\n]+\*\*\n?", "", text, flags=re.M)
+    # Avoid duplicating the new count block on re-enrichment.
+    text = re.sub(
+        r"^- Computer session markers: \*\*[^\n]+\*\*\n"
+        r"- Computer-use sessions: \*\*[^\n]+\*\*\n"
+        r"- Real computer-use turns: \*\*[^\n]+\*\*\n?",
+        "",
+        text,
+        flags=re.M,
+    )
     anchor = re.search(r"^- Non-chat activities: \*\*[^\n]+\*\*", text, flags=re.M)
     lines = (
         f"- Computer session markers: **{marker_count:,}**\n"
@@ -232,7 +290,7 @@ def _finalize(base: Path, result: dict[str, Any], exporter: VillageExporter, cou
                 manifest = loaded
         except Exception:
             pass
-    manifest["schemaVersion"] = max(int(manifest.get("schemaVersion") or 1), 2)
+    manifest["schemaVersion"] = max(int(manifest.get("schemaVersion") or 1), 3)
     manifest.setdefault("counts", {}).update(counts)
     manifest.setdefault("sources", {})["computerUseSessions"] = "/api/computer-use-sessions?villageId=…&date=YYYY-MM-DD"
     warnings = manifest.setdefault("warnings", [])
@@ -243,15 +301,23 @@ def _finalize(base: Path, result: dict[str, Any], exporter: VillageExporter, cou
         for path in base.rglob("*")
         if path.is_file() and path.name != "checksums.sha256"
     )
-    file_names.append("checksums.sha256")
-    manifest["files"] = sorted(set(file_names))
+    if "checksums.sha256" not in file_names:
+        file_names.append("checksums.sha256")
+        file_names.sort()
+    manifest["files"] = file_names
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     checksum_lines: list[str] = []
-    for path in sorted((p for p in base.rglob("*") if p.is_file() and p.name != "checksums.sha256"), key=lambda p: str(p.relative_to(base))):
+    for path in sorted(
+        (p for p in base.rglob("*") if p.is_file() and p.name != "checksums.sha256"),
+        key=lambda p: str(p.relative_to(base)),
+    ):
         rel = str(path.relative_to(base)).replace("\\", "/")
         checksum_lines.append(f"{_sha256(path)}  {rel}")
-    (base / "checksums.sha256").write_text("\n".join(checksum_lines) + ("\n" if checksum_lines else ""), encoding="utf-8")
+    (base / "checksums.sha256").write_text(
+        "\n".join(checksum_lines) + ("\n" if checksum_lines else ""),
+        encoding="utf-8",
+    )
 
     if exporter.make_zip:
         zip_path_text = result.get("zip")
@@ -261,7 +327,10 @@ def _finalize(base: Path, result: dict[str, Any], exporter: VillageExporter, cou
             zip_path = exporter.output / "archives" / f"{safe_slug(manifest.get('village', {}).get('slug') or 'village')}-{manifest.get('day', base.name)}.zip"
         zip_path.parent.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
-            for path in sorted((p for p in base.rglob("*") if p.is_file()), key=lambda p: str(p.relative_to(base))):
+            for path in sorted(
+                (p for p in base.rglob("*") if p.is_file()),
+                key=lambda p: str(p.relative_to(base)),
+            ):
                 archive.write(path, arcname=f"{base.name}/{path.relative_to(base)}")
         result["zip"] = str(zip_path)
     result["manifest"] = manifest
@@ -284,20 +353,26 @@ def _fetch_computer_payload(exporter: VillageExporter, village_id: str, day: str
 _original_export_day = VillageExporter.export_day
 
 
-def _export_day_with_real_computer_turns(self: VillageExporter, village: Any, day: str, *, overwrite: bool = False) -> dict[str, Any]:
+def _export_day_with_real_computer_turns(
+    self: VillageExporter,
+    village: Any,
+    day: str,
+    *,
+    overwrite: bool = False,
+) -> dict[str, Any]:
     result = _original_export_day(self, village, day, overwrite=overwrite)
     base = Path(result["path"])
 
-    # The previous release called event markers "computer steps". Preserve them
-    # under an honest name before replacing computer-steps.* with real API turns.
+    # A previous release called event markers "computer steps". Preserve those
+    # markers under an honest name before replacing computer-steps.* with real turns.
     markers = _marker_rows(base)
     dump_json(base / "computer-session-markers.json", markers)
     dump_jsonl(base / "computer-session-markers.jsonl", markers)
 
     payload, warning = _fetch_computer_payload(self, village.id, day)
     sessions = sessions_from_payload(payload)
-    raw_turns = flatten_turns(sessions)
-    steps = normalize_turns(sessions, village.agents)
+    raw_turns = flatten_turns(sessions, payload)
+    steps = normalize_turns(sessions, village.agents, payload)
 
     dump_json(base / "computer-use-sessions.raw.json", payload)
     dump_json(base / "computer-use-sessions.json", sessions)
