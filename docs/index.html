@@ -112,6 +112,8 @@
             <code>events.raw.json</code>
             <code>messages.json</code>
             <code>activities.json</code>
+            <code>computer-steps.json</code>
+            <code>computer-steps.jsonl</code>
             <code>timeline.jsonl</code>
             <code>human-use-sessions.raw.json</code>
             <code>rooms.discovered.json</code>
@@ -135,6 +137,7 @@
       <div class="grid">
         <article><span>🧱</span><h3>Raw event pages</h3><p>Every complete pagination response is preserved, plus a flattened raw-event file for searching and analysis.</p></article>
         <article><span>💬</span><h3>Readable views</h3><p>Messages, activities, human-helper context, and a merged chronological timeline are generated beside the raw data.</p></article>
+        <article><span>🖥️</span><h3>Computer steps</h3><p>Computer, browser, screenshot, mouse, and keyboard actions get their own chronological JSON/JSONL view with the original raw event attached.</p></article>
         <article><span>🧠</span><h3>Memory context</h3><p>Capture memory versions around consolidations, or opt into broader memory archival when you need it.</p></article>
         <article><span>🏺</span><h3>Historical rooms</h3><p>Rooms seen in old events are reconstructed even when they no longer appear in the current room roster.</p></article>
         <article><span>🐌</span><h3>Polite fetching</h3><p>One request at a time, configurable pacing, persistent browser caching, and retry/backoff behavior keep bulk extraction civilized.</p></article>
@@ -169,6 +172,7 @@
     <p>AI Village Mass Exporter · MIT licensed · Built alongside Aivillagenews / Village Archive.</p>
     <a href="https://github.com/Minuteandone/Village-exporter">Source on GitHub →</a>
   </footer>
+  <script src="./computer-steps-extension.js"></script>
   <script src="./exporter.js" defer></script>
 </body>
 </html>
