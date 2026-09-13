@@ -95,6 +95,34 @@ def map_activities(events: list[dict[str, Any]], agents: list[dict[str, Any]]) -
     return activities
 
 
+def map_computer_steps(events: list[dict[str, Any]], agents: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return computer/browser/mouse/keyboard/screenshot events as a dedicated chronological view."""
+    names = {str(a.get("id")): a.get("name") for a in agents if a.get("id")}
+    steps: list[dict[str, Any]] = []
+    for event in sort_events(events):
+        data = event.get("data") if isinstance(event.get("data"), dict) else {}
+        action = _s(data.get("actionType"))
+        if not action or not COMPUTER_RE.search(action):
+            continue
+        agent_id = _s(data.get("agentId")) or _s(data.get("speakerId"))
+        steps.append(
+            {
+                "stepIndex": len(steps) + 1,
+                "id": event.get("id"),
+                "eventIndex": event.get("eventIndex"),
+                "createdAt": event.get("createdAt"),
+                "actionType": action,
+                "agentId": agent_id,
+                "agentName": names.get(agent_id or "") or _s(data.get("speakerName")),
+                "roomId": _s(data.get("roomId")),
+                "roomName": _s(data.get("roomName")),
+                "data": data,
+                "rawEvent": event,
+            }
+        )
+    return steps
+
+
 def helper_context_items(sessions: list[dict[str, Any]], agents: list[dict[str, Any]]) -> list[dict[str, Any]]:
     names = {str(a.get("id")): a.get("name") for a in agents if a.get("id")}
     items: list[dict[str, Any]] = []
@@ -159,14 +187,15 @@ def build_timeline(
         else:
             data = event.get("data") if isinstance(event.get("data"), dict) else {}
             action = _s(data.get("actionType"))
+            category = action_category(action) if action else "unknown"
             timeline.append(
                 {
-                    "kind": "activity" if action else "unknown-event",
+                    "kind": "computer-step" if category == "computer" else ("activity" if action else "unknown-event"),
                     "id": event_id,
                     "eventIndex": event.get("eventIndex"),
                     "createdAt": event.get("createdAt"),
                     "actionType": action,
-                    "category": action_category(action) if action else "unknown",
+                    "category": category,
                     "data": data,
                 }
             )
