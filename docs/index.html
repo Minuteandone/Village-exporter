@@ -70,6 +70,28 @@
             <div id="day-list" class="day-list" aria-label="Available Village days"></div>
           </div>
 
+          <fieldset id="export-content" class="content-picker">
+            <legend>What to export</legend>
+            <p class="content-help">Choose which types of files go into the ZIP. Everything is selected by default. Manifests and checksums are always included.</p>
+            <div class="mini-actions content-actions">
+              <button id="select-all-content" type="button">Select all</button>
+              <button id="select-chat-content" type="button">Chat only</button>
+              <button id="clear-content" type="button">Clear</button>
+            </div>
+            <div class="content-grid">
+              <label class="content-option"><input name="export-content" type="checkbox" value="raw" checked><span><strong>Raw events</strong><small>Original event pages, JSON and JSONL</small></span></label>
+              <label class="content-option"><input name="export-content" type="checkbox" value="messages" checked><span><strong>Chat messages</strong><small>Readable agent and human messages</small></span></label>
+              <label class="content-option"><input name="export-content" type="checkbox" value="activities" checked><span><strong>Other activities</strong><small>Non-chat events and action types</small></span></label>
+              <label class="content-option"><input id="output-computer" name="export-content" type="checkbox" value="computer" checked><span><strong>Computer use</strong><small>Real sessions, turns and event markers</small></span></label>
+              <label class="content-option"><input name="export-content" type="checkbox" value="helper" checked><span><strong>Human helper sessions</strong><small>Original helper-session records</small></span></label>
+              <label class="content-option"><input name="export-content" type="checkbox" value="timeline" checked><span><strong>Merged timeline</strong><small>Chronological messages and actions</small></span></label>
+              <label class="content-option"><input name="export-content" type="checkbox" value="memories" checked><span><strong>Memories</strong><small>Agent memory versions, using the mode below</small></span></label>
+              <label class="content-option"><input name="export-content" type="checkbox" value="metadata" checked><span><strong>Village metadata</strong><small>Agents, rooms, discovered rooms and village</small></span></label>
+              <label class="content-option"><input name="export-content" type="checkbox" value="summary" checked><span><strong>Day summary</strong><small>Readable Markdown overview</small></span></label>
+            </div>
+            <p id="content-summary" class="content-summary" aria-live="polite">9 of 9 types selected</p>
+          </fieldset>
+
           <div class="option-grid">
             <div class="field-group">
               <label for="memory-mode">Memory context</label>
@@ -106,30 +128,15 @@
           </div>
           <progress id="export-progress" max="100" value="0"></progress>
           <div id="export-log" class="export-log" role="log" aria-live="polite"></div>
-          <div class="saved-files">
-            <span>Each day includes</span>
-            <code>event-pages/</code>
-            <code>events.raw.json</code>
-            <code>messages.json</code>
-            <code>activities.json</code>
-            <code>computer-session-markers.json</code>
-            <code>computer-use-sessions.raw.json</code>
-            <code>computer-use-sessions.json</code>
-            <code>computer-use-turns.raw.jsonl</code>
-            <code>computer-steps.json</code>
-            <code>computer-steps.jsonl</code>
-            <code>timeline.jsonl</code>
-            <code>human-use-sessions.raw.json</code>
-            <code>rooms.discovered.json</code>
-            <code>memories/</code>
-            <code>manifest.json</code>
-            <code>checksums.sha256</code>
+          <div id="included-files-preview" class="saved-files" aria-live="polite">
+            <span>Included in each day</span>
+            <code>manifest.json</code><code>checksums.sha256</code>
           </div>
         </div>
       </div>
 
       <div class="browser-note">
-        <strong>Computer-use note:</strong> real turn records come from <code>/api/computer-use-sessions</code>. High-level computer events from <code>/api/events</code> are kept separately as session markers. Screenshot URLs are recorded per turn, but images are not bulk-downloaded by default so exporting one busy day does not create thousands of extra CDN requests.
+        <strong>Computer-use note:</strong> if computer use is selected, real turn records come from <code>/api/computer-use-sessions</code>. High-level computer events from <code>/api/events</code> are kept separately as session markers when that category is selected. Screenshot URLs are recorded per turn, but images are not bulk-downloaded by default so exporting one busy day does not create thousands of extra CDN requests.
       </div>
 
       <div class="browser-note">

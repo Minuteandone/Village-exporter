@@ -8,6 +8,38 @@
   const MAX_EVENT_PAGES = 100;
   const CHAT_TYPES = new Set(['AGENT_TALK', 'USER_TALK']);
   const enc = new TextEncoder();
+  const CONTENT_PREVIEW = {
+    raw: 'event-pages/ + events.raw.*',
+    messages: 'messages.json',
+    activities: 'activities.json',
+    computer: 'computer-use-* + computer-steps.* + markers',
+    helper: 'human-use-sessions.raw.json',
+    timeline: 'timeline.jsonl',
+    memories: 'memories/',
+    metadata: 'agents.json + rooms.* + village.json',
+    summary: 'summary.md',
+  };
+
+  function outputGroupForFile(name) {
+    if (name.startsWith('event-pages/') || name.startsWith('events.raw.')) return 'raw';
+    if (name === 'messages.json') return 'messages';
+    if (name === 'activities.json') return 'activities';
+    if (name.startsWith('computer-')) return 'computer';
+    if (name === 'human-use-sessions.raw.json') return 'helper';
+    if (name === 'timeline.jsonl') return 'timeline';
+    if (name.startsWith('memories/')) return 'memories';
+    if (['agents.json', 'rooms.json', 'rooms.discovered.json', 'village.json'].includes(name)) return 'metadata';
+    if (name === 'summary.md') return 'summary';
+    return null;
+  }
+
+  function applyOutputSelection(files, selection) {
+    for (const name of files.keys()) {
+      // Unclassified auxiliary files are omitted in partial exports, not leaked by accident.
+      const group = outputGroupForFile(name);
+      if (!group || !selection.has(group)) files.delete(name);
+    }
+  }
 
   const $ = (id) => document.getElementById(id);
   const ui = {
@@ -20,6 +52,12 @@
     selectLastFive: $('select-last-five'),
     clearDays: $('clear-days'),
     memoryMode: $('memory-mode'),
+    contentPicker: $('export-content'),
+    contentSummary: $('content-summary'),
+    contentPreview: $('included-files-preview'),
+    allContent: $('select-all-content'),
+    chatContent: $('select-chat-content'),
+    clearContent: $('clear-content'),
     delay: $('request-delay'),
     refresh: $('refresh-cache'),
     export: $('export-selected'),
@@ -533,20 +571,31 @@
     return files;
   }
 
-  async function buildDayArchive(day, signal) {
+  async function buildDayArchive(day, signal, selection) {
     const requestsBefore = networkRequests;
     const cacheBefore = cacheHits;
     const warnings = [];
-    const { pages, events } = await loadEventPages(village.id, day, signal, village.latestDate);
-    const helper = await loadHumanSessions(village.id, day, signal, village.latestDate);
+    // Helper-only exports do not need to scan paginated events at all.
+    const needsEvents = [...selection].some((group) => group !== 'helper');
+    const { pages, events } = needsEvents
+      ? await loadEventPages(village.id, day, signal, village.latestDate)
+      : { pages: [], events: [] };
+    const needsHelpers = ['helper', 'timeline', 'summary'].some((group) => selection.has(group));
+    const helper = needsHelpers
+      ? await loadHumanSessions(village.id, day, signal, village.latestDate)
+      : { sessions: [], warning: null };
     if (helper.warning) warnings.push(helper.warning);
-    const { memories, warnings: memoryWarnings } = await loadMemories(day, events, village.agents, signal, village.latestDate);
+    const { memories, warnings: memoryWarnings } = selection.has('memories')
+      ? await loadMemories(day, events, village.agents, signal, village.latestDate)
+      : { memories: {}, warnings: [] };
     warnings.push(...memoryWarnings);
 
-    const messages = mapMessages(events, village.agents);
-    const activities = mapActivities(events, village.agents);
-    const timeline = buildTimeline(events, village.agents, helper.sessions);
-    const discoveredRooms = discoverRooms(events, village.rooms);
+    const messages = ['messages', 'timeline', 'summary'].some((group) => selection.has(group))
+      ? mapMessages(events, village.agents) : [];
+    const activities = ['activities', 'computer', 'summary'].some((group) => selection.has(group))
+      ? mapActivities(events, village.agents) : [];
+    const timeline = selection.has('timeline') ? buildTimeline(events, village.agents, helper.sessions) : [];
+    const discoveredRooms = selection.has('metadata') ? discoverRooms(events, village.rooms) : [];
     const files = new Map();
 
     pages.forEach((payload, index) => files.set(`event-pages/page-${String(index + 1).padStart(3, '0')}.json`, json(payload)));
@@ -564,6 +613,9 @@
       files.set(`memories/${safeSlug(agentId, 'agent')}.json`, json(versions));
     }
     files.set('summary.md', summaryMarkdown(village, day, events, messages, activities, helper.sessions, memories, warnings));
+    // Allow the computer-use extension to enrich the working map, then remove every
+    // unselected category before generating the manifest and checksums.
+    applyOutputSelection(files, selection);
 
     const manifest = {
       schemaVersion: 2,
@@ -572,6 +624,7 @@
       exportedAt: new Date().toISOString(),
       source: API_ORIGIN,
       transport: 'https://r.jina.ai relay',
+      selectedContent: [...selection].sort(),
       village: { id: village.id, slug: village.slug, name: village.name },
       day,
       counts: {
@@ -700,6 +753,34 @@
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
+  function selectedContent() {
+    return new Set([...ui.contentPicker.querySelectorAll('input[name="export-content"]:checked')].map((input) => input.value));
+  }
+
+  function updateContentSelection() {
+    const selection = selectedContent();
+    ui.memoryMode.disabled = !selection.has('memories');
+    const total = ui.contentPicker.querySelectorAll('input[name="export-content"]').length;
+    ui.contentSummary.textContent = `${selection.size} of ${total} file types selected` +
+      (selection.has('memories') && ui.memoryMode.value === 'none' ? ' · memory mode is None' : '');
+    ui.contentPreview.replaceChildren();
+    const heading = document.createElement('span');
+    heading.textContent = 'Included in each day';
+    ui.contentPreview.appendChild(heading);
+    for (const [group, name] of Object.entries(CONTENT_PREVIEW)) {
+      if (!selection.has(group) || (group === 'memories' && ui.memoryMode.value === 'none')) continue;
+      const chip = document.createElement('code');
+      chip.textContent = name;
+      ui.contentPreview.appendChild(chip);
+    }
+    for (const name of ['manifest.json', 'checksums.sha256']) {
+      const chip = document.createElement('code');
+      chip.textContent = name;
+      ui.contentPreview.appendChild(chip);
+    }
+    updateSelectionSummary();
+  }
+
   function selectedDays() {
     return [...ui.dayList.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value).sort();
   }
@@ -708,7 +789,7 @@
     const total = ui.dayList.querySelectorAll('input[type="checkbox"]').length;
     const selected = selectedDays().length;
     ui.selectionSummary.textContent = `${selected} of ${total} day${total === 1 ? '' : 's'} selected`;
-    ui.export.disabled = running || selected === 0;
+    ui.export.disabled = running || selected === 0 || selectedContent().size === 0;
   }
 
   function renderDays(dates) {
@@ -780,8 +861,10 @@
 
   async function exportSelected() {
     const days = selectedDays();
-    if (!village || !days.length || running) return;
+    const selection = selectedContent();
+    if (!village || !days.length || !selection.size || running) return;
     running = true;
+    ui.contentPicker.disabled = true;
     controller = new AbortController();
     ui.load.disabled = true;
     ui.export.disabled = true;
@@ -791,7 +874,7 @@
     cacheHits = 0;
     lastNetworkAt = 0;
     setProgress(0, days.length);
-    log(`Starting browser export of ${days.length} day${days.length === 1 ? '' : 's'} with ${requestedDelayMs() / 1000}s minimum request spacing.`);
+    log(`Starting browser export of ${days.length} day${days.length === 1 ? '' : 's'} with ${requestedDelayMs() / 1000}s minimum request spacing; file types: ${[...selection].join(', ')}.`);
     if (days.length > 10) log('Large browser exports can use a lot of memory. The Python CLI remains safer for extremely large history dumps.', 'warn');
 
     const archive = new Map();
@@ -802,6 +885,7 @@
       exportedAt: new Date().toISOString(),
       village: { id: village.id, slug: village.slug, name: village.name },
       days,
+      selectedContent: [...selection].sort(),
       dayManifests: {},
     };
 
@@ -809,7 +893,7 @@
       for (let index = 0; index < days.length; index += 1) {
         const day = days[index];
         log(`Exporting ${day} (${index + 1}/${days.length})…`);
-        const result = await buildDayArchive(day, controller.signal);
+        const result = await buildDayArchive(day, controller.signal, selection);
         const dayPrefix = days.length === 1 ? rootName : `${rootName}/${day}`;
         for (const [name, content] of result.files) archive.set(`${dayPrefix}/${name}`, content);
         exportSummary.dayManifests[day] = result.manifest;
@@ -840,10 +924,27 @@
       controller = null;
       ui.load.disabled = false;
       ui.cancel.hidden = true;
+      ui.contentPicker.disabled = false;
       updateSelectionSummary();
     }
   }
 
+  ui.contentPicker.addEventListener('change', updateContentSelection);
+  ui.memoryMode.addEventListener('change', updateContentSelection);
+  ui.allContent.addEventListener('click', () => {
+    ui.contentPicker.querySelectorAll('input[name="export-content"]').forEach((input) => { input.checked = true; });
+    updateContentSelection();
+  });
+  ui.chatContent.addEventListener('click', () => {
+    ui.contentPicker.querySelectorAll('input[name="export-content"]').forEach((input) => {
+      input.checked = ['messages', 'metadata'].includes(input.value);
+    });
+    updateContentSelection();
+  });
+  ui.clearContent.addEventListener('click', () => {
+    ui.contentPicker.querySelectorAll('input[name="export-content"]').forEach((input) => { input.checked = false; });
+    updateContentSelection();
+  });
   ui.load.addEventListener('click', loadVillage);
   ui.slug.addEventListener('keydown', (event) => { if (event.key === 'Enter') loadVillage(); });
   ui.selectAll.addEventListener('click', () => {
@@ -868,5 +969,5 @@
 
   const remembered = localStorage.getItem('ai-village-exporter-slug');
   if (remembered) ui.slug.value = remembered;
-  updateSelectionSummary();
+  updateContentSelection();
 })();

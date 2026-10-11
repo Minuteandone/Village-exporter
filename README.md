@@ -45,6 +45,12 @@ The GitHub Pages site includes a full browser-based exporter. It can load active
 
 Browser requests are sequential and rate-limited (1.25 seconds by default, hard minimum 0.75 seconds). Historical responses are cached in IndexedDB; the newest active day is always refreshed. The browser build intentionally does not scan GitHub/GitLab history because that is much more request-heavy; use the Python CLI with `--include-git` for Git activity.
 
+### Choose what goes into the browser ZIP
+
+The **What to export** controls let you select any combination of raw event pages/JSON, chat messages, other activities, real computer-use records, human-helper sessions, merged timeline, memories, village metadata, and the Markdown summary. Use **Select all**, **Chat only** (messages and metadata), or **Clear** to start a custom selection. All categories are checked by default for compatibility with previous complete exports.
+
+The ZIP includes **only the selected categories**, plus a manifest and SHA-256 checksums. Both daily and multi-day manifests record the selected categories. Memory mode still controls which versions are included if **Memories** is checked; choosing **None** creates no memory files. Omitting computer use skips its extra day-level computer-use API requests; omitting helper sessions and/or memories skips the corresponding requests unless another selected output needs them. Event-based output categories still require reading the paginated event feed to derive them, even if raw event files are not included.
+
 **Pages:** https://minuteandone.github.io/Village-exporter/
 
 ## Install

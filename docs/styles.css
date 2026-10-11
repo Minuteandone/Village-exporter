@@ -168,6 +168,19 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none !important;
 .day-option:hover { background: var(--panel-2); }
 .day-option input { accent-color: var(--lime); }
 .day-option small { color: var(--lime); font: inherit; }
+.content-picker { min-width: 0; margin: 0 0 24px; padding: 16px; border: 1px solid var(--line); border-radius: 13px; background: #101510; }
+.content-picker legend { padding: 0 7px; font-size: .86rem; font-weight: 850; color: var(--text); }
+.content-help, .content-summary { color: var(--muted); font-size: .82rem; margin: 0 0 12px; }
+.content-actions { margin-bottom: 13px; }
+.content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.content-option { display: grid; grid-template-columns: auto 1fr; gap: 9px; align-items: start; cursor: pointer; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: #0d110e; min-width: 0; }
+.content-option:hover, .content-option:focus-within { border-color: #687e5a; }
+.content-option input { margin: 4px 0 0; accent-color: var(--lime); }
+.content-option span { display: grid; gap: 3px; min-width: 0; }
+.content-option strong { font-size: .86rem; line-height: 1.25; }
+.content-option small { color: var(--muted); font-size: .75rem; line-height: 1.35; }
+.content-summary { margin: 12px 0 0; }
+.content-picker:disabled { opacity: .7; }
 .option-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px; }
 .suffix-field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
 .suffix-field span { color: var(--muted); font-size: .82rem; }
@@ -202,7 +215,7 @@ progress::-moz-progress-bar { background: var(--lime); }
   .privacy-chip { display: inline-block; margin-top: 20px; }
   .exporter-shell { grid-template-columns: 1fr; }
   .exporter-controls { border-right: 0; border-bottom: 1px solid var(--line); }
-  .option-grid { grid-template-columns: 1fr; }
+  .option-grid, .content-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
   .inline-field { grid-template-columns: 1fr; }

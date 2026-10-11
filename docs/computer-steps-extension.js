@@ -322,7 +322,7 @@
   // each selected day. Then replay the click so the existing exporter proceeds.
   document.addEventListener('click', async (event) => {
     const button = event.target?.closest?.('#export-selected');
-    if (!button || bypassPrefetchGate) return;
+    if (!button || bypassPrefetchGate || !document.getElementById('output-computer')?.checked) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (prefetching) return;
@@ -341,7 +341,7 @@
 
   function dayFor(map, key) {
     let day = dayByFileMap.get(map);
-    if (!day && typeof key === 'string' && key.startsWith('event-pages/page-001.json')) {
+    if (!day && (key === 'events.raw.json' || (typeof key === 'string' && key.startsWith('event-pages/page-001.json')))) {
       day = exportDayQueue.shift() || null;
       if (day) dayByFileMap.set(map, day);
     }
@@ -357,6 +357,8 @@
   }
 
   Map.prototype.set = function realComputerUseSet(key, value) {
+    // Do not inject computer files, alter timelines, or change manifests if omitted.
+    if (!document.getElementById('output-computer')?.checked) return nativeMapSet.call(this, key, value);
     const day = dayFor(this, key);
 
     if (key === 'activities.json' && typeof value === 'string' && day) {
